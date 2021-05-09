@@ -37,7 +37,10 @@ import {V0_FEED_MODELS} from './controllers/v0/model.index';
   }));
 
   // todo: remove path when using reverseproxy
-  app.use('/api/v0/feed', FeedRouter);
+  // app.use('/api/v0/feed', FeedRouter);
+  
+  // production:
+  app.use('/', FeedRouter);
 
   // Root URI call
   /*app.get( '/', async ( req, res ) => {
@@ -47,7 +50,7 @@ import {V0_FEED_MODELS} from './controllers/v0/model.index';
   console.log( `start on ${port}` );
   // Start the Server
   app.listen( port, () => {
-    console.log( `server running ${config.url}:${port}` );
+    console.log( `server running on port ${port}` );
     console.log( `press CTRL+C to stop server` );
   } );
 })();
