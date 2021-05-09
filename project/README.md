@@ -14,7 +14,7 @@ The project is split into two parts:
 2. Environment variables will need to be set. These environment variables include database connection details that should not be hard-coded into the application code.
 #### Environment Script
 A file named `set_env.sh` has been prepared as an optional tool to help you configure these variables on your local development environment.
- 
+
 We do _not_ want your credentials to be stored in git. After pulling this `starter` project, run the following command to tell git to stop tracking the script in git but keep it stored locally. This way, you can use the script for your convenience and reduce risk of exposing your credentials.
 `git rm --cached set_env.sh`
 
@@ -58,7 +58,9 @@ Create an AWS S3 bucket. Set the config values for environment variables prefixe
 
 ## Tips
 1. Take a look at `udagram-api` -- does it look like we can divide it into two modules to be deployed as separate microservices?
+
 2. The `.dockerignore` file is included for your convenience to not copy `node_modules`. Copying this over into a Docker container might cause issues if your local environment is a different operating system than the Docker image (ex. Windows or MacOS vs. Linux).
+
 3. It's useful to "lint" your code so that changes in the codebase adhere to a coding standard. This helps alleviate issues when developers use different styles of coding. `eslint` has been set up for TypeScript in the codebase for you. To lint your code, run the following:
     ```bash
     npx eslint --ext .js,.ts src/
@@ -67,8 +69,77 @@ Create an AWS S3 bucket. Set the config values for environment variables prefixe
     ```bash
     npx eslint --ext .js,.ts src/ --fix
     ```
+    
 4. Over time, our code will become outdated and inevitably run into security vulnerabilities. To address them, you can run:
     ```bash
     npm audit fix
     ```
+    
 5. In `set_env.sh`, environment variables are set with `export $VAR=value`. Setting it this way is not permanent; every time you open a new terminal, you will have to run `set_env.sh` to reconfigure your environment variables. To verify if your environment variable is set, you can check the variable with a command like `echo $POSTGRES_USERNAME`.
+
+
+
+
+
+# Development
+
+After S3 bucket setup and setting policy, the suggested template had the following error:
+
+`Missing required field Principal`
+
+I've added the "principal": `Action does not apply to any resource(s) in statement`
+
+After investigation, I've split up the actions and added "/*" where needed, the resulting policy looks like this:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1620422653395",
+    "Statement": [
+        {
+            "Sid": "Stmt1620422120278",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::447830847150:root"
+            },
+            "Action": [
+                "s3:DeleteObject",
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::udagram-447830847150-dev/*"
+        },
+        {
+            "Sid": "Stmt1620422650340",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::447830847150:root"
+            },
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::udagram-447830847150-dev"
+        }
+    ]
+}
+```
+
+I also added CORS policy to be able modify the S3 bucket from anywhere during development. The CORS configuration must be in JSON, so I rewrote the XML into JSON:
+
+```json
+[
+    {
+        "AllowedHeaders": [
+            "*"
+        ],
+        "AllowedMethods": [
+            "PUT",
+            "POST",
+            "DELETE"
+        ],
+        "AllowedOrigins": [
+            "*"
+        ],
+        "ExposeHeaders": []
+    }
+]
+```
+

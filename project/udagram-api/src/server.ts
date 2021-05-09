@@ -10,9 +10,17 @@ import {V0_FEED_MODELS, V0_USER_MODELS} from './controllers/v0/model.index';
 
 
 (async () => {
+  try {
+    console.log('authenticate'); // <== to make sure console.log is working and not overrided!
+    await sequelize.authenticate();
+    console.log('Connection has been established successfully.');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
   await sequelize.addModels(V0_FEED_MODELS);
   await sequelize.addModels(V0_USER_MODELS);
   await sequelize.sync();
+  console.log( `sequelize ok` );
 
   const app = express();
   const port = process.env.PORT || 8080;
@@ -36,10 +44,10 @@ import {V0_FEED_MODELS, V0_USER_MODELS} from './controllers/v0/model.index';
     res.send( '/api/v0/' );
   } );
 
-
+  console.log( `start on ${port}` );
   // Start the Server
   app.listen( port, () => {
-    console.log( `server running ${config.url}` );
+    console.log( `server running ${config.url}:${port}` );
     console.log( `press CTRL+C to stop server` );
   } );
 })();
