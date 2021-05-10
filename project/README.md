@@ -143,3 +143,136 @@ I also added CORS policy to be able modify the S3 bucket from anywhere during de
 ]
 ```
 
+#### Local environment
+
+The starter code didn't run.  I've tested the connection with the following command in Windows to make sure the environment variables are set up correctly: `"c:\Program Files\PostgreSQL\13\bin\psql.exe" -h %POSTGRES_HOST% -U %POSTGRES_USERNAME% %POSTGRES_DB%`
+
+After investigation, it turned out that Postgres module had to be updated to a newer version.
+
+The API is split up to 2 projects: udagram-api-feed and udagram-api-user
+
+I've kept the original structure, just removed the extra code and added "feed" and "users" to the path to test without reverse proxy. I've used browser to test the "feed" endpoint and Postman to test the "users".
+
+#### Docker Image
+
+The Dockerfile is configured based on `node:13`. To create the javascript files from typescript, I used `npm run build` command, but modified the `packages.json` file and removed the `Archive.zip` creation, which is not needed here.
+
+I started with building the udagram-api-user and tested it locally:
+
+`docker build -t udagram-api-user . `
+
+`docker run -e POSTGRES_USERNAME=udagramfabledev -e POSTGRES_PASSWORD=... -e POSTGRES_HOST=udagramfabledev.cj4gcaehy9yy.us-east-2.rds.amazonaws.com -e POSTGRES_DB=udagramfabledev -e AWS_BUCKET=udagram-447830847150-dev -e AWS_REGION=us-east-2 -e AWS_PROFILE=default -e JWT_SECRET=... -e URL=http://localhost:8100 -p 8080:8080 udagram-api-user`
+
+Once the test was successful, in the `server.ts` I changed the path to remove the `/api/v0/users` part, since I plan to create a reverse proxy to handle this part of the path. The docker image was then tagged and pushed to the hub:
+
+`docker tag udagram-api-user fable3/udagram-api-user`
+
+`docker login --username=fable3 `
+
+`docker push`
+
+
+
+#### Travis CI
+
+I've created a `.travis.yml` file in the project root, and added all docker build and push commands. It'd be probably better to split the project into several Git repositories, so that the docker image builds would trigger independently.
+
+I've also entered my DockerHub username and password as environment variables, so that it's not visible in the repository or the log files.
+
+#### Kubernetes
+
+I've setup the Amazon EKS, created a cluster named `Udagram`, and node group. For the cluster, an EKS role was created with `AmazonEKSClusterPolicy`
+
+For the node group, I created a role for the EC2 service with the following policies: AmazonEKSWorkerNodePolicy, AmazonEC2ContainerRegistryReadOnly, AmazonEKS_CNI_Policy.
+
+To solve the `You must be logged in to the server (Unauthorized)`error, I've created a new Access Key in My Security Credentials, and used it in `aws configure`. 
+
+For every microservice, a separate deployment.yaml and service.yaml file was applied. In addition, I created a config file for the environment variables, and used it in the deployment.yaml file:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udagram-api-user
+  labels:
+    app: udagram-api-user
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: udagram-api-user
+  template:
+    metadata:
+      labels:
+        app: udagram-api-user
+    spec:
+      containers:
+      - name: udagram-api-user
+        image: fable3/udagram-api-user
+        ports:
+        - containerPort: 8080
+        env:
+        - name: URL
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: URL
+        - name: AWS_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: AWS_BUCKET
+        - name: POSTGRES_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: POSTGRES_USERNAME
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: POSTGRES_DB
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: POSTGRES_HOST
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: AWS_REGION
+        - name: AWS_PROFILE
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: AWS_PROFILE
+        - name: JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: JWT_SECRET
+```
+
+For HPA to work, I followed this guide: https://aws.amazon.com/premiumsupport/knowledge-center/eks-metrics-server-pod-autoscaler/?nc1=h_ls
+
+`kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.6/components.yaml`
+
+Added resource requirements to deployment.yaml file:
+
+```yaml
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "1024Mi"
+            cpu: "500m"
+
+```
+
