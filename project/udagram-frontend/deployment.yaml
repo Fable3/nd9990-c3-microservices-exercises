@@ -17,4 +17,4 @@ spec:
       - name: udagram-frontend
         image: fable3/udagram-frontend
         ports:
-        - containerPort: 8100
+        - containerPort: 80
