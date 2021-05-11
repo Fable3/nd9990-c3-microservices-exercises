@@ -276,3 +276,12 @@ Added resource requirements to deployment.yaml file:
 
 ```
 
+#### Debugging
+
+The frontend was unable to connect to the backend, and the error message showed that it was trying to connect to localhost:8080. The `src/environments` had 2 separate files for hard-coded `apiHost` values, but since I didn't include the `--prod ` flag in my Dockerfile, I changed both to `apiHost: 'http://reverseproxy-svc:8080/api/v0'`
+
+I checked that I can access the API from the fronted pod, but I couldn't, so I fixed the service.yaml file where I had mismatched labels, and after that it worked:
+
+![reverse proxy fix](reverseproxy_fix.png)
+
+The frontend is accessible at http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com/
