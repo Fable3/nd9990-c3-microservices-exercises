@@ -36,11 +36,10 @@ import {V0_USER_MODELS} from './controllers/v0/model.index';
     origin: config.url,
   }));
 
-  // todo: remove path if using reverseproxy
-  //app.use('/api/v0/users', UserRouter);
+  app.use('/api/v0/users', UserRouter);
   
-  // reverse proxy version:
-  app.use('/', UserRouter);
+  // reverse proxy version: (didn't work)
+  //app.use('/', UserRouter);
 
   // Root URI call
   app.get( '/', async ( req, res ) => {

@@ -304,5 +304,63 @@ The problem was in the browser, I disabled cache, and it used the updated URL, b
 
 The solution was in https://knowledge.udacity.com/questions/317030 to drop the trailing / from the reverseproxy config.
 
+Next error: `Access to XMLHttpRequest at 'http://ab20b883ead7b4db3970062cfe90b252-1637117120.us-east-2.elb.amazonaws.com:8080/api/v0/feed' from origin 'http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: The 'Access-Control-Allow-Origin' header has a value 'http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com:80' that is not equal to the supplied origin.`
+
+So removed the trailing :80 from the URL in my config, and restarted the feed service:
+
+```
+kubectl apply -f env-config.yaml
+kubectl rollout restart deployment udagram-api-feed
+```
+
+Next: I get 404 for `http://ab20b883ead7b4db3970062cfe90b252-1637117120.us-east-2.elb.amazonaws.com:8080/api/v0/feed`
+
+Inside the feed pod it's working:
+
+```
+kubectl exec -it udagram-api-feed-745448ffcf-npjk7 -- sh
+# curl localhost:8080
+{"count":0,"rows":[]}
+```
+
+Inside reverseproxy it's not working:
+
+```
+kubectl exec -it reverseproxy-6b75d5f9d7-zvhbs -- sh
+/ # curl localhost:8080/api/v0/feed
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/v0/feed</pre>
+</body>
+</html>
+```
+
+I think the problem is that the proxy_pass URL ends with :8080, so I changed the backed api and the reverseproxy to route to /api/v0/feed inside the feed api:
+
+```
+        location /api/v0/feed {
+            proxy_pass http://udagram-api-feed-svc:8080/api/v0/feed;
+        }
+```
+
+Backend now works from browser:
+
+`http://ab20b883ead7b4db3970062cfe90b252-1637117120.us-east-2.elb.amazonaws.com:8080/api/v0/feed/`
+
+The frontend was also working up to a point where I tried to upload a picture. Following a knowledge post to https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/loading-node-credentials-environment.html I've set up my keys and modified the feed deployment to include these environment values. It still didn't work, as I expected, so I also removed the 2 lines of AWS credential override:
+
+```typescript
+//const credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
+//AWS.config.credentials = credentials;
+```
+
+After this, the image was uploaded successfully.
+
 The frontend is accessible at http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com/
 
+![deployed frontend](screenshots/deployed_frontend.png)

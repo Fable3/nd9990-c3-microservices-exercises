@@ -15,7 +15,7 @@ spec:
         service: reverseproxy
     spec:
       containers:
-      - image: fable3/udagram-reverse-proxy
+      - image: fable3/udagram-reverse-proxy:latest
         name: udagram-reverse-proxy
         imagePullPolicy: Always          
         resources:
