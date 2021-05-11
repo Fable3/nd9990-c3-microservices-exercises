@@ -278,10 +278,31 @@ Added resource requirements to deployment.yaml file:
 
 #### Debugging
 
-The frontend was unable to connect to the backend, and the error message showed that it was trying to connect to localhost:8080. The `src/environments` had 2 separate files for hard-coded `apiHost` values, but since I didn't include the `--prod ` flag in my Dockerfile, I changed both to `apiHost: 'http://reverseproxy-svc:8080/api/v0'`
+The frontend was unable to connect to the backend, and the error message showed that it was trying to connect to localhost:8080. I also had to change reverseproxy service to LoadBalancer to have an external IP. The `src/environments` had 2 separate files for hard-coded `apiHost` values, but since I didn't include the `--prod ` flag in my Dockerfile, I changed both to `http://ab20b883ead7b4db3970062cfe90b252-1637117120.us-east-2.elb.amazonaws.com:8080/api/v0`
 
 I checked that I can access the API from the fronted pod, but I couldn't, so I fixed the service.yaml file where I had mismatched labels, and after that it worked:
 
 ![reverse proxy fix](reverseproxy_fix.png)
 
+Restarted frontend: `kubectl rollout restart deployment udagram-frontend`
+
+This also pulls the latest image, because in the deployment I refer to the latest docker image, which automatically changes the image pull policy from "if not exists" to "always".
+
+`image: fable3/udagram-frontend:latest`
+
+The browser still tried to connect to the old backend, so I logged in to check if it's the new image:
+
+```
+kubectl exec -it udagram-frontend-7b949b9574-xhr6z -- sh
+cd /usr/share/nginx/html/
+cat main.js | grep apiHost
+```
+
+The problem was in the browser, I disabled cache, and it used the updated URL, but I got the following error:
+
+`Access to XMLHttpRequest at 'http://ab20b883ead7b4db3970062cfe90b252-1637117120.us-east-2.elb.amazonaws.com:8080/api/v0/feed' from origin 'http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request.`
+
+The solution was in https://knowledge.udacity.com/questions/317030 to drop the trailing / from the reverseproxy config.
+
 The frontend is accessible at http://a43ed999b3bd74c4ea82efaabb596b71-288286617.us-east-2.elb.amazonaws.com/
+
